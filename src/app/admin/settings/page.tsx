@@ -29,6 +29,30 @@ import { ApiTab } from './tabs/ApiTab/ApiTab';
 import type { Settings, SettingsTab, IndexerConfig, SavedIndexerConfig, Message } from './lib/types';
 import { parseArrayToCommaSeparated, saveTabSettings, validateAuthSettings, getTabValidation, getTabs } from './lib/helpers';
 
+const ACTIVE_TAB_STORAGE_KEY = 'adminSettingsActiveTab';
+
+// Derived from getTabs() (the runtime tab registry) so it stays in sync as tabs
+// are added/removed. Both backend modes are unioned because the 'auth' tab only
+// appears in audiobookshelf mode.
+const VALID_TABS = new Set<SettingsTab>([
+  ...getTabs('plex').map((t) => t.id),
+  ...getTabs('audiobookshelf').map((t) => t.id),
+]);
+
+/**
+ * Reads the last-active settings tab from localStorage so the page remembers
+ * which tab the user was on across refreshes. Falls back to 'library'.
+ */
+function getInitialTab(): SettingsTab {
+  try {
+    const stored = window.localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    if (stored && VALID_TABS.has(stored as SettingsTab)) return stored as SettingsTab;
+  } catch {
+    // localStorage may be unavailable (SSR, private mode, test env)
+  }
+  return 'library';
+}
+
 export default function AdminSettings() {
   // Core state
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -36,7 +60,7 @@ export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
-  const [activeTab, setActiveTab] = useState<SettingsTab>('library');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(getInitialTab);
 
   // Validation state (tracks if each tab's settings are valid)
   const [validated, setValidated] = useState({
@@ -59,6 +83,15 @@ export default function AdminSettings() {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  // Persist the active tab so it survives page refreshes
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
+    } catch {
+      // localStorage may be unavailable (private mode, test env)
+    }
+  }, [activeTab]);
 
   /**
    * Fetches all settings from the API
