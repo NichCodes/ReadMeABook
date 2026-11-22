@@ -282,6 +282,9 @@ Cover images cached locally to reduce external requests.
 
 ## App-Level API Endpoints
 
+**GET /api/audiobooks/[asin]** (details window) → `{ success, audiobook: AudibleAudiobook, audibleBaseUrl, source? }`
+- `getAudiobookDetails(asin)`; when it returns null or throws, falls back to what RMAB saved: the newest `audiobooks` row with that `audible_asin` (title, author, narrator, description, cover, series; no release date, since only the year is stored), else the `audible_cache` row (also duration, release date, rating, genres). Then `source: 'saved'`, and the details window adds "Audible has no details for this book right now. Showing what RMAB saved." and hides its Audible link (Source), so a delisted book or a fake ASIN still opens (Request, Interactive Search, Manual Import). Nothing saved → 404 `NotFound` (500 `FetchError` when the lookup threw). Code: `src/app/api/audiobooks/[asin]/route.ts`
+
 **GET /api/audiobooks/popular?page=1&limit=20**
 **GET /api/audiobooks/new-releases?page=1&limit=20**
 

@@ -228,6 +228,76 @@ describe('Audiobooks browse routes', () => {
     expect(payload.error).toBe('FetchError');
   });
 
+  describe('details fallback when Audible has nothing (saved book)', () => {
+    const get = async () => {
+      const { GET } = await import('@/app/api/audiobooks/[asin]/route');
+      const response = await GET({} as any, { params: Promise.resolve({ asin: 'ASIN123456' }) });
+      return { status: response.status, payload: await response.json() };
+    };
+
+    beforeEach(() => {
+      prismaMock.audiobook.findFirst.mockResolvedValue(null);
+      prismaMock.audibleCache.findUnique.mockResolvedValue(null);
+    });
+
+    it('Audible answers: its details, no saved lookup', async () => {
+      audibleServiceMock.getAudiobookDetails.mockResolvedValue({ asin: 'ASIN123456', title: 'Live' });
+      const { payload } = await get();
+      expect(payload.audiobook.title).toBe('Live');
+      expect(payload.source).toBeUndefined();
+      expect(prismaMock.audiobook.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('not on Audible: the requested book\'s saved row (newest first)', async () => {
+      audibleServiceMock.getAudiobookDetails.mockResolvedValue(null);
+      prismaMock.audiobook.findFirst.mockResolvedValue({
+        title: 'Saved', author: 'Author', narrator: null, description: 'Blurb', coverArtUrl: 'https://img/c.jpg',
+        series: 'Saga', seriesPart: '2', seriesAsin: null, year: 2020,
+      });
+
+      const { status, payload } = await get();
+
+      expect(status).toBe(200);
+      expect(payload).toMatchObject({ success: true, source: 'saved' });
+      expect(payload.audiobook).toEqual({
+        asin: 'ASIN123456', title: 'Saved', author: 'Author', description: 'Blurb', coverArtUrl: 'https://img/c.jpg', series: 'Saga', seriesPart: '2',
+      });
+      expect(prismaMock.audiobook.findFirst.mock.calls[0][0]).toMatchObject({ where: { audibleAsin: 'ASIN123456' }, orderBy: { updatedAt: 'desc' } });
+      expect(prismaMock.audibleCache.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('Audible lookup throws: falls back too', async () => {
+      audibleServiceMock.getAudiobookDetails.mockRejectedValue(new Error('down'));
+      prismaMock.audiobook.findFirst.mockResolvedValue({ title: 'Saved', author: 'Author' });
+      const { status, payload } = await get();
+      expect(status).toBe(200);
+      expect(payload.source).toBe('saved');
+    });
+
+    it('never requested: the Audible cache row', async () => {
+      audibleServiceMock.getAudiobookDetails.mockResolvedValue(null);
+      prismaMock.audibleCache.findUnique.mockResolvedValue({
+        title: 'Cached', author: 'Author', narrator: 'Reader', description: null, coverArtUrl: null,
+        durationMinutes: 600, releaseDate: new Date('2019-05-01T00:00:00Z'), rating: '4.50', genres: ['Fantasy', 3],
+      });
+
+      const { payload } = await get();
+
+      expect(payload.source).toBe('saved');
+      expect(payload.audiobook).toEqual({
+        asin: 'ASIN123456', title: 'Cached', author: 'Author', narrator: 'Reader', durationMinutes: 600,
+        releaseDate: '2019-05-01T00:00:00.000Z', rating: 4.5, genres: ['Fantasy'],
+      });
+    });
+
+    it('nothing saved and Audible threw: 500 as before', async () => {
+      audibleServiceMock.getAudiobookDetails.mockRejectedValue(new Error('down'));
+      const { status, payload } = await get();
+      expect(status).toBe(500);
+      expect(payload.error).toBe('FetchError');
+    });
+  });
+
   it('returns cached covers for login', async () => {
     // Mock AudibleCacheCategory query (covers route now queries category table)
     prismaMock.audibleCacheCategory.findMany.mockResolvedValueOnce([

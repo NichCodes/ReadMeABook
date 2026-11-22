@@ -157,6 +157,8 @@ export function useAudiobookDetails(asin: string | null, { retryOnError = true }
   return {
     audiobook: data?.audiobook || null,
     audibleBaseUrl: data?.audibleBaseUrl || 'https://www.audible.com',
+    /** Audible had no details; `audiobook` is what RMAB saved (the request's book or the Audible cache) */
+    fromSaved: data?.source === 'saved',
     isLoading,
     error,
   };

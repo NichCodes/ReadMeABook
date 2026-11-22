@@ -111,7 +111,7 @@ export function AudiobookDetailsModal({
 }: AudiobookDetailsModalProps) {
   const { user } = useAuth();
   const { squareCovers } = usePreferences();
-  const { audiobook, audibleBaseUrl, isLoading: isLoadingRequested, error } = useAudiobookDetails(isOpen ? asin : null);
+  const { audiobook, audibleBaseUrl, fromSaved, isLoading: isLoadingRequested, error } = useAudiobookDetails(isOpen ? asin : null);
   // Display only (#325): the library's edition when it differs; actions below keep `asin` and `audiobook`
   const library = useLibraryEdition(asin, libraryAsin, isOpen);
   const shown = library.libraryBook ?? audiobook;
@@ -156,6 +156,8 @@ export function AudiobookDetailsModal({
   const effectiveStatus = localRequestStatus;
   const status = getStatusInfo(isAvailable, effectiveStatus, requestedByUsername);
   const summaryText = shown?.description?.trim() ?? '';
+  // Audible had no details and the book shown is RMAB's saved copy: say so, and no Audible link
+  const showingSaved = fromSaved && !library.libraryBook;
   const canShowEbookButtons = isAvailable && ebookStatus?.ebookSourcesEnabled && !ebookStatus?.hasActiveEbookRequest;
   // Explicit mark (#542): wherever Request shows, Audiobookshelf with the setting on, never on a denied request
   const showExplicit = explicitMarkOn && !!user && status.canRequest && effectiveStatus !== 'denied' && requestType !== 'ebook';
@@ -469,6 +471,11 @@ export function AudiobookDetailsModal({
                     </p>
                   )}
                   <RequestedEditionLine requested={audiobook} requestedAsin={asin} libraryAsin={library.libraryAsin} libraryShown={!!library.libraryBook} />
+                  {showingSaved && (
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      Audible has no details for this book right now. Showing what RMAB saved.
+                    </p>
+                  )}
 
                   {/* Status Badge */}
                   {status.type !== 'none' && (
@@ -596,21 +603,23 @@ export function AudiobookDetailsModal({
                     </button>
                   </div>
 
-                  {/* Audible Link */}
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400">Source</p>
-                    <a
-                      href={`${audibleBaseUrl}/pd/${shownAsin}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-orange-600 dark:text-orange-400 hover:underline"
-                    >
-                      Audible
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                  </div>
+                  {/* Audible Link (not for a saved copy: Audible has no page for it) */}
+                  {!showingSaved && (
+                    <div>
+                      <p className="text-gray-500 dark:text-gray-400">Source</p>
+                      <a
+                        href={`${audibleBaseUrl}/pd/${shownAsin}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-orange-600 dark:text-orange-400 hover:underline"
+                      >
+                        Audible
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
+                    </div>
+                  )}
 
                   {/* Language */}
                   {shown.language && (

@@ -10,6 +10,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const useAuthMock = vi.hoisted(() => vi.fn());
+const details = vi.hoisted(() => ({ fromSaved: false }));
 
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => useAuthMock() }));
 vi.mock('@/contexts/PreferencesContext', () => ({
@@ -18,6 +19,7 @@ vi.mock('@/contexts/PreferencesContext', () => ({
 vi.mock('@/lib/hooks/useAudiobooks', () => ({
   useAudiobookDetails: () => ({
     audiobook: { asin: 'ASIN123', title: 'Detail Book', author: 'Detail Author', description: '', genres: [] },
+    fromSaved: details.fromSaved,
     isLoading: false,
     error: null,
   }),
@@ -46,7 +48,23 @@ async function openManualImport(props: Record<string, unknown>) {
 
 describe('AudiobookDetailsModal Manual Import', () => {
   beforeEach(() => {
+    details.fromSaved = false;
     useAuthMock.mockReturnValue({ user: { id: 'admin-1', username: 'admin', role: 'admin' } });
+  });
+
+  // Audible had no details: the window opens from what RMAB saved, so the request can still be imported
+  it('a book shown from what RMAB saved says so, has no Audible link, and Manual Import still opens', async () => {
+    details.fromSaved = true;
+    const browser = await openManualImport({ requestStatus: 'failed', requestId: 'req-ab' });
+    expect(screen.getByText('Audible has no details for this book right now. Showing what RMAB saved.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Audible' })).toBeNull();
+    expect(browser).toHaveAttribute('data-request-type', 'audiobook');
+  });
+
+  it('no note for a book Audible knows, and the Audible link shows', async () => {
+    await openManualImport({ requestStatus: 'failed' });
+    expect(screen.queryByText(/Showing what RMAB saved/)).toBeNull();
+    expect(screen.getByRole('link', { name: 'Audible' })).toHaveAttribute('href', expect.stringContaining('/pd/ASIN123'));
   });
 
   it('an ebook request card opens an ebook import for that request', async () => {

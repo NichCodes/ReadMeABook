@@ -61,6 +61,7 @@
 ## Audible Integration
 - **Web scraping (popular, new releases)** → [integrations/audible.md](integrations/audible.md)
 - **Database caching, real-time matching** → [integrations/audible.md](integrations/audible.md)
+- **Book details when Audible has none (delisted book, Audible down, fake ASIN): falls back to the saved book, details window still opens incl. Manual Import** → [integrations/audible.md](integrations/audible.md#app-level-api-endpoints)
 - **Book covers API for login page** → [frontend/pages/login.md](frontend/pages/login.md)
 - **Dedup & works table (cross-ASIN identity)** → [integrations/audible.md](integrations/audible.md#dedup--works-table)
 - **Multi-narrator capture in HTML scrapers** → [integrations/audible.md](integrations/audible.md#narrator-capture-in-html-scrapers)
